@@ -3,54 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DigitalBazaare</title>
+    <title>DigitalBzarr | السوق الرقمي</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
-        .product-card { background: #1e1e1e; border: 1px solid #ffc107; border-radius: 15px; padding: 20px; margin: 20px auto; max-width: 400px; }
-        .price { color: #ffc107; font-size: 24px; font-weight: bold; }
-        .btn-buy { background: #ffc107; color: black; border: none; padding: 15px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        #user-info { color: #4caf50; margin-bottom: 20px; font-weight: bold; }
+        :root { --gold: #ffc107; --dark: #121212; }
+        body { font-family: 'Arial', sans-serif; background: var(--dark); color: white; margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 500px; margin: auto; }
+        .card { background: #1e1e1e; border: 1px solid var(--gold); border-radius: 15px; padding: 25px; margin-top: 20px; }
+        .btn { background: var(--gold); color: black; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.1em; }
+        #user-name { color: var(--gold); font-weight: bold; }
+        .status-msg { font-size: 0.9em; margin-top: 10px; color: #888; }
     </style>
 </head>
 <body>
-    <h1>DigitalBazaare 🏛️</h1>
-    <div id="user-info">جاري التحقق من الهوية...</div>
 
-    <div class="product-card">
-        <h3>📦 منتج رقمي</h3>
-        <p>احصل على هذا العرض المميز عبر عملة Pi.</p>
-        <p class="price">0.5 π</p>
-        <button class="btn-buy" onclick="buyItem()">شراء الآن</button>
+<div class="container">
+    <h1>DigitalBzarr 🏛️</h1>
+    <div id="auth-section">
+        <p>مرحباً بك في البازار الرقمي</p>
+        <button class="btn" id="login-btn">تسجيل الدخول عبر Pi</button>
     </div>
 
-    <script>
-        const Pi = window.Pi;
-        Pi.init({ version: "2.0", sandbox: true });
+    <div id="main-section" style="display: none;">
+        <p>أهلاً بك، <span id="user-name"></span>!</p>
+        <div class="card">
+            <h3>منتج رقمي حصري</h3>
+            <p>سعر العرض: 1.0 π</p>
+            <button class="btn" onclick="transferPi()">اتمام الشراء الآن</button>
+            <div class="status-msg" id="payment-status"></div>
+        </div>
+    </div>
+</div>
 
-        async function login() {
-            try {
-                const auth = await Pi.authenticate(['username', 'payments'], (p) => {});
-                document.getElementById('user-info').innerText = "أهلاً بك في البازار، " + auth.user.username;
-            } catch (e) { console.error(e); }
-        }
-        login();
+<script>
+    const Pi = window.Pi;
+    // تهيئة التطبيق (تأكد أن sandbox: true للاختبار)
+    Pi.init({ version: "2.0", sandbox: true });
 
-        async function buyItem() {
-            try {
-                await Pi.createPayment({
-                    amount: 0.5,
-                    memo: "شراء من DigitalBazaare",
-                    metadata: { itemId: "db_01" },
-                }, {
-                    onReadyForServerApproval: (id) => { console.log("Approved:", id); },
-                    onReadyForServerCompletion: (id, tx) => { alert("تمت العملية بنجاح!"); },
-                    onCancel: (id) => {},
-                    onError: (e) => { alert("خطأ: " + e.message); }
-                });
-            } catch (err) { alert(err.message); }
+    const loginBtn = document.getElementById('login-btn');
+    
+    loginBtn.onclick = async () => {
+        try {
+            // طلب المصادقة من المستخدم
+            const auth = await Pi.authenticate(['username', 'payments'], (p) => {
+                console.log("معالجة الدفع جارية...");
+            });
+            
+            // إظهار واجهة المستخدم بعد النجاح
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('main-section').style.display = 'block';
+            document.getElementById('user-name').innerText = auth.user.username;
+        } catch (err) {
+            alert("خطأ في الاتصال: " + err.message);
         }
-    </script>
+    };
+
+    async function transferPi() {
+        const status = document.getElementById('payment-status');
+        status.innerText = "جاري فتح المحفظة لتأكيد العملية...";
+        
+        try {
+            // إنشاء طلب دفع رسمي
+            const payment = await Pi.createPayment({
+                amount: 1.0,
+                memo: "شراء منتج رقمي من DigitalBzarr",
+                metadata: { itemId: "item_gold_01" },
+            }, {
+                onReadyForServerApproval: (paymentId) => {
+                    status.innerText = "✅ الطلب قيد المعالجة (ID: " + paymentId + ")";
+                },
+                onReadyForServerCompletion: (paymentId, txid) => {
+                    status.innerText = "🎊 نجحت العملية! رقم المعاملة: " + txid;
+                    alert("تم الشراء بنجاح!");
+                },
+                onCancel: (paymentId) => { status.innerText = "❌ تم إلغاء العملية"; },
+                onError: (error) => { status.innerText = "⚠️ خطأ: " + error.message; }
+            });
+        } catch (e) {
+            alert("حدث خطأ تقني: " + e.message);
+        }
+    }
+</script>
+
 </body>
 </html>
-
